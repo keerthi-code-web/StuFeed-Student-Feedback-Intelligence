@@ -3,6 +3,10 @@ import React, { useEffect, useState } from "react";
 
 type Item = { id?: number; name: string; semester?: number };
 
+interface FeedbackDataManagementProps {
+  onDataChanged?: () => void;
+}
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px",
@@ -20,7 +24,9 @@ const buttonStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-export const FeedbackDataManagement: React.FC = () => {
+export const FeedbackDataManagement: React.FC<FeedbackDataManagementProps> = ({
+  onDataChanged,
+}) => {
   const [departments, setDepartments] = useState<Item[]>([]);
   const [subjects, setSubjects] = useState<Item[]>([]);
   const [instructors, setInstructors] = useState<Item[]>([]);
@@ -42,19 +48,32 @@ export const FeedbackDataManagement: React.FC = () => {
   });
 
   useEffect(() => {
+    let cancelled = false;
+
     fetch("/api/departments")
-      .then(async (r) => {
-        if (!r.ok) throw new Error("Failed to load departments");
-        return r.json();
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load departments");
+        return response.json();
       })
       .then((data) => {
+        if (cancelled) return;
         const list = Array.isArray(data) ? data : data.departments || [];
-        setDepartments(list.filter((x: Item) => x?.name));
+        setDepartments(list.filter((item: Item) => item?.name));
       })
-      .catch(() => setMessage("Could not load departments. Check the backend."));
+      .catch(() => {
+        if (!cancelled) {
+          setMessage("Could not load departments. Check the backend.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     setSubject("");
     setInstructor("");
     setSemester("");
@@ -64,34 +83,55 @@ export const FeedbackDataManagement: React.FC = () => {
     if (!department || isOther) return;
 
     fetch(`/api/subjects?department_name=${encodeURIComponent(department)}`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error("Failed to load subjects");
-        return r.json();
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load subjects");
+        return response.json();
       })
-      .then((data: Item[]) => setSubjects(Array.isArray(data) ? data : []))
-      .catch(() => setMessage("Could not load subjects."));
-  }, [department]);
+      .then((data: Item[]) => {
+        if (!cancelled) setSubjects(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setMessage("Could not load subjects.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [department, isOther]);
 
   useEffect(() => {
+    let cancelled = false;
+
     setInstructor("");
     setInstructors([]);
 
     if (!department || isOther) return;
 
-    const selected = subjects.find((x) => x.name === subject);
+    const selected = subjects.find((item) => item.name === subject);
     let url = `/api/instructors?department_name=${encodeURIComponent(department)}`;
 
-    if (selected?.id) url += `&subject_id=${selected.id}`;
-    else if (subject) url += `&subject_name=${encodeURIComponent(subject)}`;
+    if (selected?.id) {
+      url += `&subject_id=${selected.id}`;
+    } else if (subject) {
+      url += `&subject_name=${encodeURIComponent(subject)}`;
+    }
 
     fetch(url)
-      .then(async (r) => {
-        if (!r.ok) throw new Error("Failed to load instructors");
-        return r.json();
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load instructors");
+        return response.json();
       })
-      .then((data: Item[]) => setInstructors(Array.isArray(data) ? data : []))
-      .catch(() => setMessage("Could not load instructors."));
-  }, [department, subject, subjects]);
+      .then((data: Item[]) => {
+        if (!cancelled) setInstructors(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setMessage("Could not load instructors.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [department, subject, subjects, isOther]);
 
   const getScope = () => ({
     ...(department ? { department_name: department } : {}),
@@ -135,7 +175,9 @@ export const FeedbackDataManagement: React.FC = () => {
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+
+    // Delay URL cleanup so the browser has time to start the download.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     return cutoff;
   };
@@ -200,9 +242,14 @@ export const FeedbackDataManagement: React.FC = () => {
       });
 
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.detail || "Deletion failed.");
+      if (!response.ok) {
+        throw new Error(body.detail || "Deletion failed.");
+      }
 
       setMessage(`${body.message} The PDF was downloaded first.`);
+
+      // Refresh dashboard counts, charts, instructor data, and topic data.
+      onDataChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Operation failed.");
     } finally {
@@ -246,9 +293,14 @@ export const FeedbackDataManagement: React.FC = () => {
       });
 
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.detail || "Clear operation failed.");
+      if (!response.ok) {
+        throw new Error(body.detail || "Clear operation failed.");
+      }
 
       setMessage(body.message);
+
+      // Refresh the dashboard only after the backend confirms deletion.
+      onDataChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Clear failed.");
     } finally {
@@ -267,7 +319,7 @@ export const FeedbackDataManagement: React.FC = () => {
         background: "#fff",
       }}
     >
-      <h3 style={{ marginTop: 0 }}>Feedback Report & Data Management</h3>
+      <h3 style={{ marginTop: 0 }}>Feedback Report &amp; Data Management</h3>
       <p style={{ color: "#6b7280" }}>
         Select the exact feedback scope before generating a report or deleting
         records.
@@ -284,16 +336,16 @@ export const FeedbackDataManagement: React.FC = () => {
           Department
           <select
             value={department}
-            onChange={(e) => setDepartment(e.target.value)}
+            onChange={(event) => setDepartment(event.target.value)}
             style={inputStyle}
           >
             <option value="">All departments</option>
-            {departments.map((x) => (
-              <option key={x.id ?? x.name} value={x.name}>
-                {x.name}
+            {departments.map((item) => (
+              <option key={item.id ?? item.name} value={item.name}>
+                {item.name}
               </option>
             ))}
-            {!departments.some((x) => x.name.toLowerCase() === "other") && (
+            {!departments.some((item) => item.name.toLowerCase() === "other") && (
               <option value="Other">Other — Institutional</option>
             )}
           </select>
@@ -304,13 +356,13 @@ export const FeedbackDataManagement: React.FC = () => {
           <select
             value={semester}
             disabled={!department || isOther}
-            onChange={(e) => setSemester(e.target.value)}
+            onChange={(event) => setSemester(event.target.value)}
             style={inputStyle}
           >
             <option value="">All semesters</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <option key={n} value={n}>
-                Semester {n}
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((number) => (
+              <option key={number} value={number}>
+                Semester {number}
               </option>
             ))}
           </select>
@@ -321,13 +373,13 @@ export const FeedbackDataManagement: React.FC = () => {
           <select
             value={subject}
             disabled={!department || isOther}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(event) => setSubject(event.target.value)}
             style={inputStyle}
           >
             <option value="">All subjects</option>
-            {subjects.map((x) => (
-              <option key={x.id ?? x.name} value={x.name}>
-                {x.name}
+            {subjects.map((item) => (
+              <option key={item.id ?? item.name} value={item.name}>
+                {item.name}
               </option>
             ))}
           </select>
@@ -338,13 +390,13 @@ export const FeedbackDataManagement: React.FC = () => {
           <select
             value={instructor}
             disabled={!department || isOther}
-            onChange={(e) => setInstructor(e.target.value)}
+            onChange={(event) => setInstructor(event.target.value)}
             style={inputStyle}
           >
             <option value="">All instructors</option>
-            {instructors.map((x) => (
-              <option key={x.id ?? x.name} value={x.name}>
-                {x.name}
+            {instructors.map((item) => (
+              <option key={item.id ?? item.name} value={item.name}>
+                {item.name}
               </option>
             ))}
           </select>
@@ -357,22 +409,25 @@ export const FeedbackDataManagement: React.FC = () => {
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <button
+          type="button"
           disabled={busy}
           onClick={generateReport}
           style={{ ...buttonStyle, background: "#1d4ed8" }}
         >
-          Generate & Download Report
+          Generate &amp; Download Report
         </button>
 
         <button
+          type="button"
           disabled={busy}
           onClick={reportThenDelete}
           style={{ ...buttonStyle, background: "#b45309" }}
         >
-          Generate Report & Delete Selected Feedback
+          Generate Report &amp; Delete Selected Feedback
         </button>
 
         <button
+          type="button"
           disabled={busy}
           onClick={clearWithoutReport}
           style={{ ...buttonStyle, background: "#b91c1c" }}
