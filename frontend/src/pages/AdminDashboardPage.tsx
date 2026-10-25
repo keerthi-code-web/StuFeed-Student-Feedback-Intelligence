@@ -1,4 +1,4 @@
-
+import { FeedbackDataManagement } from '../components/FeedbackDataManagement';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   PieChart,
@@ -921,7 +921,8 @@ export const AdminDashboardPage: React.FC<Props> = ({
           <ArrowRight size={18} />
         </button>
       </section>
-
+          {/* Feedback management controls — directly below View Total Feedback Received */}
+<FeedbackDataManagement />
       <AcademicManagementModal
         isOpen={isManagementOpen}
         onClose={() => setIsManagementOpen(false)}

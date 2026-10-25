@@ -19,6 +19,7 @@ from app.routes.auth import verify_session_token
 from app.routes.departments import ensure_initial_departments
 from app.nlp.sentiment import sentiment_analyzer
 from app.nlp.topic_clustering import topic_clusterer
+from app.routes import feedback_data_management
 
 logging.basicConfig(
     level=logging.INFO,
@@ -143,6 +144,7 @@ app.include_router(departments.router)
 app.include_router(instructors.router)
 app.include_router(feedback.router)
 app.include_router(analytics.router)
+app.include_router(feedback_data_management.router)
 
 
 @app.get("/")
