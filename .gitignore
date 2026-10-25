@@ -32,3 +32,23 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+.venv/
+venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+
+# Local database files and backups
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.backup*

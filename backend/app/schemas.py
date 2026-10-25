@@ -1,28 +1,36 @@
+
 from datetime import datetime
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# --- Department Schemas ---
+
+# ==========================================================
+# DEPARTMENT SCHEMAS
+# ==========================================================
 
 class DepartmentBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=150)
     code: Optional[str] = Field(None, max_length=20)
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: str) -> str:
-        v_str = v.strip()
-        if not v_str:
-            raise ValueError("Department name cannot be empty")
-        return v_str
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Department name cannot be empty.")
+        return value
+
 
 class DepartmentCreate(DepartmentBase):
     pass
+
 
 class DepartmentUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=150)
     code: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
+
 
 class DepartmentResponse(DepartmentBase):
     id: int
@@ -35,6 +43,7 @@ class DepartmentResponse(DepartmentBase):
     class Config:
         from_attributes = True
 
+
 class OtherOverview(BaseModel):
     total_submissions: int = 0
     positive: int = 0
@@ -42,43 +51,59 @@ class OtherOverview(BaseModel):
     neutral: int = 0
     mixed: int = 0
 
-# --- Subject Schemas ---
+
+# ==========================================================
+# SUBJECT SCHEMAS
+# ==========================================================
 
 class SubjectBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=150)
     code: Optional[str] = Field(None, max_length=20)
     department_id: int
+    semester: int = Field(
+        ...,
+        ge=1,
+        le=8,
+        description="Semester number from 1 to 8",
+    )
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: str) -> str:
-        v_str = v.strip()
-        if not v_str:
-            raise ValueError("Subject name cannot be empty")
-        return v_str
+    def validate_subject_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Subject name cannot be empty.")
+        return value
+
 
 class SubjectCreate(SubjectBase):
     instructor_ids: Optional[List[int]] = []
+
 
 class SubjectUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=150)
     code: Optional[str] = Field(None, max_length=20)
     department_id: Optional[int] = None
+    semester: Optional[int] = Field(None, ge=1, le=8)
     is_active: Optional[bool] = None
     instructor_ids: Optional[List[int]] = None
+
 
 class SimpleInstructor(BaseModel):
     id: int
     name: str
+
     class Config:
         from_attributes = True
+
 
 class SubjectResponse(BaseModel):
     id: int
     name: str
-    code: Optional[str]
-    department_id: Optional[int]
+    code: Optional[str] = None
+    department_id: Optional[int] = None
     department_name: Optional[str] = None
+    semester: int = 1
     is_active: bool
     created_at: datetime
     instructors: List[SimpleInstructor] = []
@@ -86,7 +111,10 @@ class SubjectResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Instructor Schemas ---
+
+# ==========================================================
+# INSTRUCTOR SCHEMAS
+# ==========================================================
 
 class InstructorCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=120)
@@ -94,13 +122,14 @@ class InstructorCreate(BaseModel):
     department_name: Optional[str] = "Computer Science and Engineering"
     subject_ids: Optional[List[int]] = []
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: str) -> str:
-        v_str = v.strip()
-        if not v_str:
-            raise ValueError("Instructor name cannot be empty")
-        return v_str
+    def validate_instructor_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Instructor name cannot be empty.")
+        return value
+
 
 class InstructorUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=120)
@@ -109,12 +138,16 @@ class InstructorUpdate(BaseModel):
     is_active: Optional[bool] = None
     subject_ids: Optional[List[int]] = None
 
+
 class SimpleSubject(BaseModel):
     id: int
     name: str
     code: Optional[str] = None
+    semester: int = 1
+
     class Config:
         from_attributes = True
+
 
 class InstructorResponse(BaseModel):
     id: int
@@ -129,56 +162,115 @@ class InstructorResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Student Submission Schemas ---
+
+# ==========================================================
+# STUDENT FEEDBACK SUBMISSION SCHEMAS
+# ==========================================================
 
 class FeedbackCreate(BaseModel):
-    register_number: str = Field(..., min_length=2, max_length=50, description="Student Register Number")
-    student_name: str = Field(..., min_length=2, max_length=150, description="Student Full Name")
-    department_name: str = Field(..., min_length=2, max_length=150, description="Department Name or 'Other'")
-    subject_name: Optional[str] = Field(None, max_length=150, description="Subject Name (null for Other)")
-    instructor_name: Optional[str] = Field(None, max_length=120, description="Instructor Name (null for Other)")
-    rating: int = Field(..., ge=1, le=5, description="Integer rating from 1 to 5")
-    feedback_text: str = Field(..., min_length=5, max_length=2000, description="Written feedback")
+    register_number: str = Field(
+        ...,
+        min_length=2,
+        max_length=50,
+        description="Student Register Number",
+    )
+    student_name: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+        description="Student Full Name",
+    )
+    department_name: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+        description="Department Name or Other",
+    )
+    subject_name: Optional[str] = Field(
+        None,
+        max_length=150,
+        description="Subject name; null for Other",
+    )
+    semester: Optional[int] = Field(
+        None,
+        ge=1,
+        le=8,
+        description="Required for academic feedback; null for Other",
+    )
+    instructor_name: Optional[str] = Field(
+        None,
+        max_length=120,
+        description="Instructor name; null for Other",
+    )
+    rating: int = Field(..., ge=1, le=5)
+    feedback_text: str = Field(..., min_length=5, max_length=2000)
 
-    @field_validator('register_number', 'student_name', 'department_name', 'feedback_text')
+    @field_validator(
+        "register_number",
+        "student_name",
+        "department_name",
+        "feedback_text",
+    )
     @classmethod
-    def strip_whitespace(cls, v: str) -> str:
-        v_stripped = v.strip()
-        if not v_stripped:
-            raise ValueError("Field cannot be empty or only whitespace")
-        return v_stripped
+    def strip_required_strings(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Field cannot be empty or only whitespace.")
+        return value
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_department_and_academics(self):
-        dept = self.department_name.strip()
-        if dept.lower() == 'other':
-            # Other feedback must NOT have subject or instructor
+        department = self.department_name.strip()
+
+        if department.lower() == "other":
             if self.subject_name and self.subject_name.strip():
-                raise ValueError("Institutional feedback under 'Other' category must not include a Subject.")
+                raise ValueError(
+                    "Feedback under Other must not include a subject."
+                )
+
             if self.instructor_name and self.instructor_name.strip():
-                raise ValueError("Institutional feedback under 'Other' category must not include an Instructor.")
+                raise ValueError(
+                    "Feedback under Other must not include an instructor."
+                )
+
             self.subject_name = None
             self.instructor_name = None
+            self.semester = None
+
         else:
-            # Academic department feedback MUST have both subject and instructor
+            if self.semester is None:
+                raise ValueError(
+                    "Semester is required for academic feedback."
+                )
+
             if not self.subject_name or not self.subject_name.strip():
-                raise ValueError(f"Subject Name is required for department '{dept}'.")
+                raise ValueError(
+                    f"Subject name is required for department '{department}'."
+                )
+
             if not self.instructor_name or not self.instructor_name.strip():
-                raise ValueError(f"Instructor Name is required for department '{dept}'.")
+                raise ValueError(
+                    f"Instructor name is required for department '{department}'."
+                )
+
             self.subject_name = self.subject_name.strip()
             self.instructor_name = self.instructor_name.strip()
+
         return self
+
 
 class SentimentScores(BaseModel):
     negative: float
     neutral: float
     positive: float
 
+
 class FeedbackSubmissionResponse(BaseModel):
     id: int
     department_name: str
     is_other: bool
     subject_name: Optional[str] = None
+    semester: Optional[int] = None
     instructor_name: Optional[str] = None
     rating: int
     feedback_text: str
@@ -191,13 +283,18 @@ class FeedbackSubmissionResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Admin View Schemas (Student Privacy Preserved) ---
+
+# ==========================================================
+# ADMIN FEEDBACK SCHEMAS
+# Student register numbers and names remain excluded.
+# ==========================================================
 
 class FeedbackAdminItem(BaseModel):
     id: int
     department_name: str
     is_other: bool
     subject_name: Optional[str] = None
+    semester: Optional[int] = None
     instructor_name: Optional[str] = None
     rating: int
     feedback_text: str
@@ -213,11 +310,17 @@ class FeedbackAdminItem(BaseModel):
     class Config:
         from_attributes = True
 
+
+# ==========================================================
+# ANALYTICS SCHEMAS
+# ==========================================================
+
 class SentimentCount(BaseModel):
     positive: int = 0
     negative: int = 0
     neutral: int = 0
     mixed: int = 0
+
 
 class TopicClusterResponse(BaseModel):
     cluster_id: int
@@ -230,6 +333,7 @@ class TopicClusterResponse(BaseModel):
     departments: List[str] = []
     subjects: List[str] = []
     instructors: List[str] = []
+
 
 class OverviewMetrics(BaseModel):
     total_submissions: int

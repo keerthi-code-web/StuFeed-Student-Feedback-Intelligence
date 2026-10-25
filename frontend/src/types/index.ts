@@ -1,3 +1,4 @@
+
 export interface SentimentScores {
   negative: number;
   neutral: number;
@@ -9,6 +10,7 @@ export interface FeedbackSubmission {
   department_name: string;
   is_other: boolean;
   subject_name?: string | null;
+  semester?: number | null;
   instructor_name?: string | null;
   rating: number;
   feedback_text: string;
@@ -87,6 +89,7 @@ export interface SimpleSubject {
   id: number;
   name: string;
   code?: string;
+  semester: number;
 }
 
 export interface Subject {
@@ -95,6 +98,7 @@ export interface Subject {
   code?: string;
   department_id: number;
   department_name?: string;
+  semester: number;
   is_active: boolean;
   created_at: string;
   instructors: SimpleInstructor[];
